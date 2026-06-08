@@ -85,36 +85,38 @@
 </div>
 
 <script>
-    // GLOBAL VARIABLES & SUPABASE SETUP
+    // Supabase Setup
     const SUPABASE_URL = 'https://ezwfygqsdzfflkepozgp.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_D0jy7dmnxllWH8DscOJoSw_we3LVpOK';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    let pool = {}; 
+    let pool = {};
     let betHistory = [];
     let totalPool = 0;
     const commission = 0.05;
 
-    // PAGE LOAD LOGIC
     window.onload = async () => {
-        const { data, error } = await supabase.from('betting_records').select('*');
-        if (data && data.length > 0) {
-            data.forEach(bet => {
-                pool[bet.team_name] = (pool[bet.team_name] || 0) + bet.bet_amount;
-                betHistory.push({ player: bet.player_name, team: bet.team_name, amount: bet.bet_amount, timestamp: new Date(bet.created_at).toLocaleString() });
-            });
-            totalPool = Object.values(pool).reduce((a, b) => a + b, 0);
-            
-            document.getElementById('setupSection').style.display = 'none';
-            document.getElementById('bettingSection').style.display = 'block';
-            document.getElementById('resultsSection').style.display = 'block';
-            refreshDropdowns();
-            updateUI(); 
-            updateLedger();
+        try {
+            const { data, error } = await supabaseClient.from('betting_records').select('*');
+            if (error) throw error;
+            if (data && data.length > 0) {
+                data.forEach(bet => {
+                    pool[bet.team_name] = (pool[bet.team_name] || 0) + bet.bet_amount;
+                    betHistory.push({ player: bet.player_name, team: bet.team_name, amount: bet.bet_amount, timestamp: new Date(bet.created_at).toLocaleString() });
+                });
+                totalPool = Object.values(pool).reduce((a, b) => a + b, 0);
+                document.getElementById('setupSection').style.display = 'none';
+                document.getElementById('bettingSection').style.display = 'block';
+                document.getElementById('resultsSection').style.display = 'block';
+                refreshDropdowns();
+                updateUI();
+                updateLedger();
+            }
+        } catch (err) {
+            console.error("Supabase Error:", err);
         }
     };
 
-    // UI FUNCTIONS
     function generateTeamInputs() {
         const num = document.getElementById('numTeams').value;
         const container = document.getElementById('teamInputContainer');
@@ -158,12 +160,9 @@
         const team = document.getElementById('teamDropdown').value;
         const amount = parseFloat(document.getElementById('betAmount').value);
         if (!player || !team || isNaN(amount) || amount <= 0) return alert("Fill all fields");
-
-        const { data, error } = await supabase.from('betting_records').insert([{ player_name: player, team_name: team, bet_amount: amount }]).select();
+        const { data, error } = await supabaseClient.from('betting_records').insert([{ player_name: player, team_name: team, bet_amount: amount }]).select();
         if (error) return alert("Error saving bet: " + error.message);
-
         pool[team] = (pool[team] || 0) + amount;
-        totalPool += amount;
         betHistory.push({ player, team, amount, timestamp: new Date().toLocaleString() });
         updateUI();
         updateLedger();
@@ -202,7 +201,7 @@
     }
 
     function clearAllData() {
-        if (confirm("Clear all data?")) {
+        if (confirm("Are you sure you want to clear all competition data? This cannot be undone.")) {
             localStorage.clear();
             location.reload();
         }
