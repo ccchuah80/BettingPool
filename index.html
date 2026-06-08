@@ -155,13 +155,25 @@
         }
     }
 
-    async function placeBet() {
-        const player = document.getElementById('playerName').value;
-        const team = document.getElementById('teamDropdown').value;
-        const amount = parseFloat(document.getElementById('betAmount').value);
-        if (!player || !team || isNaN(amount) || amount <= 0) return alert("Fill all fields");
-        const { data, error } = await supabaseClient.from('betting_records').insert([{ player_name: player, team_name: team, bet_amount: amount }]).select();
-        if (error) return alert("Error saving bet: " + error.message);
+	 async function placeBet() {
+		const player = document.getElementById('playerName').value;
+		const team = document.getElementById('teamDropdown').value;
+		const amount = parseFloat(document.getElementById('betAmount').value);
+		
+		if (!player || !team || isNaN(amount) || amount <= 0) return alert("Fill all fields");
+	
+		// Add created_at manually
+		const { data, error } = await supabaseClient
+			.from('betting_records')
+			.insert([{ 
+				player_name: player, 
+				team_name: team, 
+				bet_amount: amount,
+				created_at: new Date().toISOString() // Explicitly send the current time
+			}])
+			.select();
+	
+		if (error) return alert("Error saving bet: " + error.message);
         pool[team] = (pool[team] || 0) + amount;
         betHistory.push({ player, team, amount, timestamp: new Date().toLocaleString() });
         updateUI();
