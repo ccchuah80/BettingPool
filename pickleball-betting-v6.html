@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pickleball World Cup 2026 | Betting Pool</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: linear-gradient(135deg, #2e7d32 0%, #ffc107 100%) fixed; min-height: 100vh; margin: 0; padding: 20px; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; }
+        .main-wrapper { background: rgba(255, 255, 255, 0.95); padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 900px; width: 100%; }
+        h2, h3 { text-align: center; color: #1b5e20; }
+        .box { margin-bottom: 20px; padding: 15px; border: 1px solid #ddd; border-radius: 10px; }
+        .container-layout { display: flex; gap: 20px; flex-wrap: wrap; }
+        .section { flex: 1; min-width: 300px; }
+        input, select { width: 100%; padding: 10px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #2e7d32; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; margin-bottom: 5px; }
+        .add-btn { background: #4b0082; }
+        .clear-btn { background: #d32f2f; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #e8f5e9; }
+        th, td { padding: 10px; border: 1px solid #ddd; text-align: left; }
+        th { background: #2e7d32; color: white; }
+        #betLedger { list-style: none; padding: 0; font-size: 0.8rem; max-height: 250px; overflow-y: auto; background: #fff; border: 1px solid #eee; }
+        #betLedger li { border-bottom: 1px solid #eee; padding: 8px; }
+        .timestamp { font-weight: bold; color: #555; display: block; font-size: 0.7rem; }
+        .rules-section { font-size: 0.8rem; color: #333; margin-top: 15px; background: #f9f9f9; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="main-wrapper">
+    <h2>Pickleball World Cup 2026</h2>
+    <button class="clear-btn" onclick="clearAllData()">Clear All Data</button>
+
+    <div id="setupSection" class="box">
+        <h3>1. Competition Setup</h3>
+        <input type="number" id="numTeams" placeholder="Total number of teams">
+        <button onclick="generateTeamInputs()">Create Team Slots</button>
+        <div id="teamInputContainer"></div>
+    </div>
+
+    <div id="bettingSection" class="box" style="display:none;">
+        <h3>2. Betting Pool</h3>
+        <div class="section">
+            <input type="text" id="newTeamName" placeholder="Add New Team Name">
+            <button class="add-btn" onclick="addNewTeam()">Add New Team</button>
+        </div>
+        <div class="container-layout">
+            <div class="section">
+                <input type="text" id="playerName" placeholder="Player Name">
+                <select id="teamDropdown"></select>
+                <input type="number" id="betAmount" placeholder="Bet Amount (RM)">
+                <button onclick="placeBet()">Place Bet</button>
+                <table id="poolTable">
+                    <thead><tr><th>Team</th><th>Total Bet</th></tr></thead>
+                    <tbody id="poolBody"></tbody>
+                </table>
+            </div>
+            <div class="section">
+                <h3>Betting Ledger</h3>
+                <ul id="betLedger"></ul>
+                <div class="rules-section">
+                    <strong>Rules:</strong>
+                    <ul>
+                        <li>5% commission is deducted from the total pool.</li>
+                        <li>Payouts are calculated based on the winning team's final total share.</li>
+                        <li>All bets are final once recorded in the ledger.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="resultsSection" class="box" style="display:none;">
+        <h3>3. Final Results</h3>
+        <select id="winnerDropdown"></select>
+        <button onclick="calculateWinners()">Calculate Payouts</button>
+        <div id="payoutArea" style="display:none;">
+            <h4>Winners List</h4>
+            <table id="winnerTable">
+                <thead><tr><th>Player</th><th>Original Bet</th><th>Prize</th></tr></thead>
+                <tbody id="winnerBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // GLOBAL VARIABLES & SUPABASE SETUP
+    const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
+    const SUPABASE_ANON_KEY = 'YOUR_ANON_PUBLIC_KEY';
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let pool = {}; 
+    let betHistory = [];
+    let totalPool = 0;
+    const commission = 0.05;
+
+    // PAGE LOAD LOGIC
+    window.onload = async () => {
+        const { data, error } = await supabase.from('betting_records').select('*');
+        if (data && data.length > 0) {
+            data.forEach(bet => {
+                pool[bet.team_name] = (pool[bet.team_name] || 0) + bet.bet_amount;
+                betHistory.push({ player: bet.player_name, team: bet.team_name, amount: bet.bet_amount, timestamp: new Date(bet.created_at).toLocaleString() });
+            });
+            totalPool = Object.values(pool).reduce((a, b) => a + b, 0);
+            
+            document.getElementById('setupSection').style.display = 'none';
+            document.getElementById('bettingSection').style.display = 'block';
+            document.getElementById('resultsSection').style.display = 'block';
+            refreshDropdowns();
+            updateUI(); 
+            updateLedger();
+        }
+    };
+
+    // UI FUNCTIONS
+    function generateTeamInputs() {
+        const num = document.getElementById('numTeams').value;
+        const container = document.getElementById('teamInputContainer');
+        container.innerHTML = '';
+        for(let i=0; i<num; i++) container.innerHTML += `<input type="text" placeholder="Team Name ${i+1}" class="team-name">`;
+        container.innerHTML += `<br><button onclick="confirmTeams()">Start Competition</button>`;
+    }
+
+    function confirmTeams() {
+        const inputs = document.querySelectorAll('.team-name');
+        inputs.forEach(input => { if(input.value) pool[input.value] = 0; });
+        document.getElementById('setupSection').style.display = 'none';
+        document.getElementById('bettingSection').style.display = 'block';
+        document.getElementById('resultsSection').style.display = 'block';
+        refreshDropdowns();
+        updateUI();
+    }
+
+    function addNewTeam() {
+        const newTeam = document.getElementById('newTeamName').value.trim();
+        if (newTeam && !pool[newTeam]) {
+            pool[newTeam] = 0;
+            refreshDropdowns();
+            updateUI();
+            document.getElementById('newTeamName').value = '';
+        }
+    }
+
+    function refreshDropdowns() {
+        const teamDropdown = document.getElementById('teamDropdown');
+        const winnerDropdown = document.getElementById('winnerDropdown');
+        teamDropdown.innerHTML = ''; winnerDropdown.innerHTML = '';
+        for (const team in pool) {
+            teamDropdown.innerHTML += `<option value="${team}">${team}</option>`;
+            winnerDropdown.innerHTML += `<option value="${team}">${team}</option>`;
+        }
+    }
+
+    async function placeBet() {
+        const player = document.getElementById('playerName').value;
+        const team = document.getElementById('teamDropdown').value;
+        const amount = parseFloat(document.getElementById('betAmount').value);
+        if (!player || !team || isNaN(amount) || amount <= 0) return alert("Fill all fields");
+
+        const { data, error } = await supabase.from('betting_records').insert([{ player_name: player, team_name: team, bet_amount: amount }]).select();
+        if (error) return alert("Error saving bet: " + error.message);
+
+        pool[team] = (pool[team] || 0) + amount;
+        totalPool += amount;
+        betHistory.push({ player, team, amount, timestamp: new Date().toLocaleString() });
+        updateUI();
+        updateLedger();
+    }
+
+    function updateLedger() {
+        const ledger = document.getElementById('betLedger');
+        ledger.innerHTML = '';
+        betHistory.slice().reverse().forEach(bet => {
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="timestamp">${bet.timestamp}</span> ${bet.player} -> ${bet.team}: RM ${bet.amount.toFixed(2)}`;
+            ledger.appendChild(li);
+        });
+    }
+
+    function updateUI() {
+        const tbody = document.getElementById('poolBody');
+        tbody.innerHTML = '';
+        for (const team in pool) {
+            tbody.innerHTML += `<tr><td>${team}</td><td>RM ${pool[team].toFixed(2)}</td></tr>`;
+        }
+    }
+
+    function calculateWinners() {
+        const winningTeam = document.getElementById('winnerDropdown').value;
+        const netPool = totalPool * (1 - commission);
+        const tbody = document.getElementById('winnerBody');
+        tbody.innerHTML = '';
+        betHistory.forEach(bet => {
+            if (bet.team === winningTeam) {
+                const prize = (bet.amount / pool[winningTeam]) * netPool;
+                tbody.innerHTML += `<tr><td>${bet.player}</td><td>RM ${bet.amount.toFixed(2)}</td><td>RM ${prize.toFixed(2)}</td></tr>`;
+            }
+        });
+        document.getElementById('payoutArea').style.display = 'block';
+    }
+
+    function clearAllData() {
+        if (confirm("Clear all data?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+</script>
+</body>
+</html>
