@@ -28,7 +28,7 @@
 <body>
 
 <div class="main-wrapper">
-    <h2>Betting Pool [Just for Fun Only]</h2>
+    <h2>Mornetic Tournament 3.0 <br>Betting Pool <br>[Just for Fun Only]</h2>
     <div id="setupSection" class="box">
     </div>
     <div id="bettingSection" class="box" style="display:none;">
@@ -40,7 +40,7 @@
 				<input type="number" id="betAmount" placeholder="Bet Amount (RM)" max="100" min="1">
                 <button style="height: 40px; font-size: 16px;" onclick="placeBet()">Place Your Bet</button>
                 <table id="poolTable">
-                    <thead><tr><th>Team</th><th>Total Bet Now</th></tr></thead>
+                    <thead><tr><th>Team</th><th>Total Bet</th></tr></thead>
                     <tbody id="poolBody"></tbody>
                 </table>
             </div>
@@ -90,6 +90,7 @@
     const commission = 0.05;
 
     window.onload = async () => {
+
         try {
             const { data, error } = await supabaseClient.from('betting_records').select('*');
             if (error) throw error;
