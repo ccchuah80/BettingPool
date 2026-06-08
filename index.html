@@ -28,30 +28,19 @@
 <body>
 
 <div class="main-wrapper">
-    <h2>Pickleball World Cup 2026</h2>
-    <button class="clear-btn" onclick="clearAllData()">Clear All Data</button>
-
+    <h2>Betting Pool [Just for Fun Only]</h2>
     <div id="setupSection" class="box">
-        <h3>1. Competition Setup</h3>
-        <input type="number" id="numTeams" placeholder="Total number of teams">
-        <button onclick="generateTeamInputs()">Create Team Slots</button>
-        <div id="teamInputContainer"></div>
     </div>
-
     <div id="bettingSection" class="box" style="display:none;">
-        <h3>2. Betting Pool</h3>
-        <div class="section">
-            <input type="text" id="newTeamName" placeholder="Add New Team Name">
-            <button class="add-btn" onclick="addNewTeam()">Add New Team</button>
-        </div>
+        
         <div class="container-layout">
             <div class="section">
                 <input type="text" id="playerName" placeholder="Player Name">
-                <select id="teamDropdown"></select>
-                <input type="number" id="betAmount" placeholder="Bet Amount (RM)">
-                <button onclick="placeBet()">Place Bet</button>
+                <select id="teamDropdown" style="height: 35px; font-size: 13px;"></select>
+				<input type="number" id="betAmount" placeholder="Bet Amount (RM)" max="100" min="1">
+                <button style="height: 40px; font-size: 16px;" onclick="placeBet()">Place Your Bet</button>
                 <table id="poolTable">
-                    <thead><tr><th>Team</th><th>Total Bet</th></tr></thead>
+                    <thead><tr><th>Team</th><th>Total Bet Now</th></tr></thead>
                     <tbody id="poolBody"></tbody>
                 </table>
             </div>
@@ -64,6 +53,7 @@
                         <li>5% commission is deducted from the total pool.</li>
                         <li>Payouts are calculated based on the winning team's final total share.</li>
                         <li>All bets are final once recorded in the ledger.</li>
+                        <li><strong>Note: This project is intended for recreational purposes only</strong></li>
                     </ul>
                 </div>
             </div>
@@ -71,15 +61,19 @@
     </div>
 
     <div id="resultsSection" class="box" style="display:none;">
-        <h3>3. Final Results</h3>
-        <select id="winnerDropdown"></select>
-        <button onclick="calculateWinners()">Calculate Payouts</button>
+        <h3>Final Results</h3>
+        <select id="winnerDropdown" style="height: 35px; font-size: 13px;"></select>
         <div id="payoutArea" style="display:none;">
-            <h4>Winners List</h4>
-            <table id="winnerTable">
-                <thead><tr><th>Player</th><th>Original Bet</th><th>Prize</th></tr></thead>
-                <tbody id="winnerBody"></tbody>
-            </table>
+	        
+		<table id="winnerTable">
+			<caption style="font-weight: bold; font-size: 1.2rem; color: #1b5e20; padding: 10px;">
+				Winning Team: <span id="winningTeamName"></span>
+			</caption>
+			<thead>
+				<tr><th>Player</th><th>Original Bet</th><th>Prize</th></tr>
+			</thead>
+			<tbody id="winnerBody"></tbody>
+		</table>
         </div>
     </div>
 </div>
@@ -161,7 +155,10 @@
 		const amount = parseFloat(document.getElementById('betAmount').value);
 		
 		if (!player || !team || isNaN(amount) || amount <= 0) return alert("Fill all fields");
-	
+		if (amount <= 0) return alert("Bet amount must be greater than 0.");
+    	if (amount > 200) {
+        return alert("Maximum bet allowed is RM 200. 🤣");
+    	}
 		// Add created_at manually
 		const { data, error } = await supabaseClient
 			.from('betting_records')
@@ -198,19 +195,24 @@
         }
     }
 
-    function calculateWinners() {
-        const winningTeam = document.getElementById('winnerDropdown').value;
-        const netPool = totalPool * (1 - commission);
-        const tbody = document.getElementById('winnerBody');
-        tbody.innerHTML = '';
-        betHistory.forEach(bet => {
-            if (bet.team === winningTeam) {
-                const prize = (bet.amount / pool[winningTeam]) * netPool;
-                tbody.innerHTML += `<tr><td>${bet.player}</td><td>RM ${bet.amount.toFixed(2)}</td><td>RM ${prize.toFixed(2)}</td></tr>`;
-            }
-        });
-        document.getElementById('payoutArea').style.display = 'block';
-    }
+function calculateWinners() {
+    const winningTeam = document.getElementById('winnerDropdown').value;
+    
+    // Update the caption label
+    document.getElementById('winningTeamName').textContent = winningTeam;
+    
+    const netPool = totalPool * (1 - commission);
+    const tbody = document.getElementById('winnerBody');
+    tbody.innerHTML = '';
+    
+    betHistory.forEach(bet => {
+        if (bet.team === winningTeam) {
+            const prize = (bet.amount / pool[winningTeam]) * netPool;
+            tbody.innerHTML += `<tr><td>${bet.player}</td><td>RM ${bet.amount.toFixed(2)}</td><td>RM ${prize.toFixed(2)}</td></tr>`;
+        }
+    });
+    document.getElementById('payoutArea').style.display = 'block';
+}
 
     function clearAllData() {
         if (confirm("Are you sure you want to clear all competition data? This cannot be undone.")) {
